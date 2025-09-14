@@ -74,9 +74,9 @@
     const spinner = document.getElementById('verify-spinner');
     const paypalDiv = document.getElementById('paypal-container');
     let paypalLoaded = false;
+    let selectedPlan = null;
 
     if (form) {
-      form.setAttribute('autocomplete','off');
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         msg.style.color = "black";
@@ -88,12 +88,16 @@
           const email = form.email.value.trim();
           const password = form.password.value;
           const country = form.country.value.trim();
-          const plan = form.plan.value;
+          selectedPlan = form.plan.value;
 
           const cred = await createUserWithEmailAndPassword(auth, email, password);
 
+          // Lock plan so user can't change it later
+          document.getElementById('r-plan').disabled = true;
+
           await setDoc(doc(db, "users", cred.user.uid), {
-            email, firstName, lastName, whatsapp, country, plan,
+            email, firstName, lastName, whatsapp, country,
+            plan: selectedPlan,
             verified: false,
             paid: false,
             createdAt: serverTimestamp()
@@ -107,7 +111,7 @@
 
         } catch (err) {
           msg.style.color = "red";
-          msg.innerText = err.message;
+          msg.innerText = err.message.replace("Firebase:", "");
         }
       });
     }
@@ -136,7 +140,6 @@
     }
 
     function loadPayPalButton() {
-      const plan = form ? form.plan.value : 'website-development';
       const prices = {
         "website-development": 20,
         "mobile-repairing": 10,
@@ -148,7 +151,7 @@
       paypal.Buttons({
         createOrder: (data, actions) => {
           return actions.order.create({
-            purchase_units: [{ amount: { value: prices[plan] || 10 } }]
+            purchase_units: [{ amount: { value: prices[selectedPlan] || 10 } }]
           });
         },
         onApprove: (data, actions) => {
@@ -157,7 +160,7 @@
             msg.innerText = "Payment completed. Redirecting...";
             await setDoc(doc(db, "users", auth.currentUser.uid), { paid: true }, { merge: true });
             setTimeout(() => {
-              window.location.href = plan + "-dashboard.html";
+              window.location.href = selectedPlan + "-dashboard.html";
             }, 1500);
           });
         }
