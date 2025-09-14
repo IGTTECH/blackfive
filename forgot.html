@@ -46,5 +46,25 @@
       }
     });
   </script>
+<script type="module">
+import { auth } from "./src/firebase-config.js";
+import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const form = document.getElementById('resetForm');
+const msg = document.getElementById('msg');
+if(form){
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    msg.style.color='black'; msg.innerText='Sending reset email...';
+    try{
+      const email = document.getElementById('email').value.trim();
+      await sendPasswordResetEmail(auth, email);
+      msg.style.color='green'; msg.innerText='Password reset email sent.';
+    }catch(err){
+      msg.style.color='red'; msg.innerText = err.message || err;
+    }
+  });
+}
+</script>
 </body>
 </html>
