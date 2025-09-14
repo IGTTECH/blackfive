@@ -6,7 +6,7 @@
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link rel="stylesheet" href="igt.css">
 
-<!-- PayPal SDK (replace client-id with yours) -->
+<!-- PayPal SDK -->
 <script src="https://www.paypal.com/sdk/js?client-id=AVEX1YCYhqqBh1UB3qas6vKAmRDHKk5ro8z5I65vKco3B5-NsrnbYSqkYTcwUQFyuop96hhmOkvB92-k&currency=USD"></script>
 
 <title>Register - IGT Tech</title>
@@ -26,7 +26,7 @@
         <input id="r-email" name="email" type="email" placeholder="Email" required class="p-3 border rounded w-full" />
         <div class="grid grid-cols-2 gap-3">
           <input id="r-password" name="password" type="password" placeholder="Password" required class="p-3 border rounded" />
-          <input name="language" placeholder="Language (e.g. English, Kiswahili)" class="p-3 border rounded" />
+          <input name="country" placeholder="Country" required class="p-3 border rounded" />
         </div>
 
         <label class="block">Choose course you want to learn</label>
@@ -41,7 +41,7 @@
 
         <div class="mt-2">
           <label>Choose plan</label>
-          <select id="r-plan" class="w-full p-2 border rounded">
+          <select id="r-plan" name="plan" class="w-full p-2 border rounded">
             <option value="website-development">Website Development</option>
             <option value="mobile-repairing">Mobile Repairing</option>
             <option value="kujenga-tovuti">Kujenga Tovuti</option>
@@ -73,25 +73,11 @@
     </div>
   </div>
 
-  <!-- Firebase Config + Auth -->
+  <!-- Firebase Auth + Firestore Logic -->
   <script type="module">
-    // ✅ Firebase config from your project settings
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBGBL3C-zTw6vwThkIuE6mfFanLa-emJA",
-      authDomain: "igt-project-12443.firebaseapp.com",
-      projectId: "igt-project-12443",
-      storageBucket: "igt-project-12443.firebasestorage.app",
-      messagingSenderId: "458543908033",
-      appId: "1:458543908033:web:5781a612406ef2dfe3c824"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-
-    import { registerUser } from "./src/auth.js";
+    import { auth, db } from "../src/firebase-config.js";
+    import { createUserWithEmailAndPassword, sendEmailVerification, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const form = document.getElementById('registerForm');
     const msg = document.getElementById('msg');
@@ -101,31 +87,49 @@
     const paypalDiv = document.getElementById('paypal-container');
 
     // Registration
-    form.addEventListener('submit', async (e)=>{
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('r-email').value.trim();
-      const password = document.getElementById('r-password').value;
-      const plan = document.getElementById('r-plan').value;
-
       msg.innerText = "Creating account...";
 
       try {
-        const res = await registerUser(email, password, plan);
+        const firstName = form.firstName.value.trim();
+        const lastName = form.lastName.value.trim();
+        const whatsapp = form.whatsapp.value.trim();
+        const email = form.email.value.trim();
+        const password = form.password.value;
+        const country = form.country.value.trim();
+        const plan = form.plan.value;
+
+        // Create Auth user
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Save profile in Firestore
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email, firstName, lastName, whatsapp, country, plan,
+          verified: false,
+          paid: false,
+          createdAt: serverTimestamp()
+        });
+
+        // Send verification
+        await sendEmailVerification(cred.user);
+
         msg.style.color = "green";
-        msg.innerText = res.message || "Account created. Check your email for verification.";
+        msg.innerText = "Account created! Please verify your email.";
         verifySection.style.display = "block";
-      } catch(err) {
+
+      } catch (err) {
         msg.style.color = "red";
         msg.innerText = err.message;
       }
     });
 
     // Verify email check
-    verifyBtn.addEventListener('click', async ()=>{
+    verifyBtn.addEventListener('click', async () => {
       spinner.style.display = "inline";
-      if(auth.currentUser){
+      if (auth.currentUser) {
         await reload(auth.currentUser);
-        if(auth.currentUser.emailVerified){
+        if (auth.currentUser.emailVerified) {
           spinner.style.display = "none";
           paypalDiv.style.display = "block";
           msg.innerText = "Email verified. Now complete your payment.";
@@ -138,8 +142,8 @@
     });
 
     // PayPal setup
-    function loadPayPalButton(){
-      const plan = document.getElementById('r-plan').value;
+    function loadPayPalButton() {
+      const plan = form.plan.value;
       const prices = {
         "website-development": 20,
         "mobile-repairing": 10,
@@ -149,73 +153,25 @@
         "gukora-phone": 12
       };
       paypal.Buttons({
-        createOrder: (data, actions)=>{
+        createOrder: (data, actions) => {
           return actions.order.create({
-            purchase_units:[{ amount:{ value: prices[plan] || 10 } }]
+            purchase_units: [{ amount: { value: prices[plan] || 10 } }]
           });
         },
-        onApprove: (data, actions)=>{
-          return actions.order.capture().then(details=>{
+        onApprove: (data, actions) => {
+          return actions.order.capture().then(async () => {
             msg.innerText = "Payment completed. Redirecting...";
-            setTimeout(()=>{ 
-              window.location.href = plan+"-dashboard.html"; 
-            },1500);
+
+            // mark user as paid in Firestore
+            await setDoc(doc(db, "users", auth.currentUser.uid), { paid: true }, { merge: true });
+
+            setTimeout(() => {
+              window.location.href = plan + "-dashboard.html";
+            }, 1500);
           });
         }
       }).render('#paypal-button-container');
     }
   </script>
-
-<!-- Added: Firestore user write on registration with full profile -->
-<script type="module">
-import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { app } from "./src/firebase-config.js";
-
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-const form = document.getElementById('registerForm');
-if(form){
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    try{
-      const email = form.email?.value.trim() || '';
-      const password = form.password?.value || '';
-      const firstName = form.firstName?.value.trim() || '';
-      const lastName = form.lastName?.value.trim() || '';
-      const whatsapp = form.whatsapp?.value.trim() || '';
-      const country = form.country?.value.trim() || '';
-      const plan = form.plan?.value || 'free';
-
-      // create user in Firebase Auth
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = cred.user.uid;
-
-      // write profile to Firestore
-      await setDoc(doc(db, 'users', uid), {
-        email,
-        firstName,
-        lastName,
-        whatsapp,
-        country,
-        plan,
-        verified: false,
-        paid: false,
-        createdAt: serverTimestamp()
-      });
-
-      // send verification email
-      await sendEmailVerification(cred.user);
-      alert('Account created. Verification email sent — please verify then return to complete payment.');
-      window.location.href = 'verify.html';
-    }catch(err){
-      console.error(err);
-      alert(err.message || err);
-    }
-  });
-}
-</script>
 </body>
-
 </html>
