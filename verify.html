@@ -48,6 +48,9 @@ const prices = {
   "gukora-phone": 12
 };
 
+let paypalLoaded = false; // prevent duplicate renders
+let currentPlan = "website-development"; // default
+
 // Handle logged-in user
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -59,10 +62,11 @@ onAuthStateChanged(auth, async (user) => {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   const data = snap.exists() ? snap.data() : {};
+  currentPlan = data.plan || currentPlan;
 
   if (user.emailVerified) {
     try {
-      await updateDoc(ref, { verified: true });
+      await setDoc(ref, { verified: true }, { merge: true });
     } catch (e) {
       console.warn("Could not update verified flag:", e);
     }
@@ -76,7 +80,7 @@ onAuthStateChanged(auth, async (user) => {
       }
     } else {
       paypalDiv.style.display = "block";
-      loadPayPalButton(data.plan || "website-development");
+      loadPayPalButton(currentPlan);
     }
   }
 });
@@ -91,7 +95,7 @@ verifyBtn.addEventListener("click", async () => {
       msg.style.color = "green";
       msg.innerText = "Email verified! Please complete payment.";
       paypalDiv.style.display = "block";
-      loadPayPalButton("website-development");
+      loadPayPalButton(currentPlan);
     } else {
       spinner.style.display = "none";
       msg.style.color = "red";
@@ -100,8 +104,11 @@ verifyBtn.addEventListener("click", async () => {
   }
 });
 
-// Load PayPal button
+// Load PayPal button safely
 function loadPayPalButton(plan) {
+  if (paypalLoaded) return; // avoid multiple renders
+  paypalLoaded = true;
+
   paypal.Buttons({
     createOrder: (data, actions) => {
       return actions.order.create({
@@ -115,17 +122,7 @@ function loadPayPalButton(plan) {
 
         if (auth.currentUser) {
           const ref = doc(db, "users", auth.currentUser.uid);
-          const snap = await getDoc(ref);
-          if (snap.exists()) {
-            await updateDoc(ref, { paid: true, plan });
-          } else {
-            await setDoc(ref, {
-              email: auth.currentUser.email,
-              paid: true,
-              plan,
-              createdAt: new Date().toISOString()
-            });
-          }
+          await setDoc(ref, { paid: true, plan }, { merge: true });
         }
 
         setTimeout(() => {
