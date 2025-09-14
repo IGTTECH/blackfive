@@ -14,15 +14,9 @@
   <pre id="log"></pre>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-auth.js";
-    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
-    import { firebaseConfig } from "./src/firebase-config.js"; // ✅ make sure this path matches your repo
-
-    // --- INIT ---
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    // ✅ Import from your shared firebase-config.js
+    import { auth, db } from "./src/firebase-config.js";
+    import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const log = (msg) => {
       document.getElementById("log").textContent += msg + "\n";
