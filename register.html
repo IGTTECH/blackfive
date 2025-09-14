@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link rel="stylesheet" href="igt.css">
+
+<!-- PayPal SDK (replace client-id with yours) -->
+<script src="https://www.paypal.com/sdk/js?client-id=AVEX1YCYhqqBh1UB3qas6vKAmRDHKk5ro8z5I65vKco3B5-NsrnbYSqkYTcwUQFyuop96hhmOkvB92-k&currency=USD"></script>
+
+<title>Register - IGT Tech</title>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
+  <div class="max-w-3xl w-full bg-white rounded-2xl shadow-lg p-8 grid grid-cols-2 gap-6">
+    <!-- Registration Form -->
+    <div class="col-span-1">
+      <h2 class="text-2xl font-bold mb-4">Create an account</h2>
+      <form id="registerForm" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <input name="firstName" placeholder="First name" required class="p-3 border rounded" />
+          <input name="lastName" placeholder="Last name" required class="p-3 border rounded" />
+        </div>
+        <input name="whatsapp" placeholder="Whatsapp (with country code) e.g. +2567..." required class="p-3 border rounded w-full" />
+
+        <input id="r-email" name="email" type="email" placeholder="Email" required class="p-3 border rounded w-full" />
+        <div class="grid grid-cols-2 gap-3">
+          <input id="r-password" name="password" type="password" placeholder="Password" required class="p-3 border rounded" />
+          <input name="language" placeholder="Language (e.g. English, Kiswahili)" class="p-3 border rounded" />
+        </div>
+
+        <label class="block">Choose course you want to learn</label>
+        <select id="r-course" name="course" required class="p-3 border rounded w-full">
+          <option value="website-development">Website Development - $20/mo</option>
+          <option value="mobile-repairing">Mobile Repairing - $10/mo</option>
+          <option value="kujenga-tovuti">Kujenga Tovuti - $22/mo</option>
+          <option value="ufundi-simu">Ufundi Simu - $11/mo</option>
+          <option value="kubaka-imbuga">Kubaka Imbuga - $25/mo</option>
+          <option value="gukora-phone">Gukora Phone - $12/mo</option>
+        </select>
+
+        <div class="mt-2">
+          <label>Choose plan</label>
+          <select id="r-plan" class="w-full p-2 border rounded">
+            <option value="website-development">Website Development</option>
+            <option value="mobile-repairing">Mobile Repairing</option>
+            <option value="kujenga-tovuti">Kujenga Tovuti</option>
+            <option value="ufundi-simu">Ufundi Simu</option>
+            <option value="kubaka-imbuga">Kubaka Imbuga</option>
+            <option value="gukora-phone">Gukora phone</option>
+          </select>
+        </div>
+
+        <div id="msg" class="text-sm text-red-600"></div>
+        <button class="w-full bg-blue-600 text-white p-3 rounded">Create account</button>
+      </form>
+
+      <!-- Verify + PayPal -->
+      <div id="verify-section" style="display:none; margin-top:16px;">
+        <p class="text-sm">Please verify your email, then click the button below.</p>
+        <button id="verify-check-btn" type="button" class="mt-2 bg-green-600 text-white px-4 py-2 rounded">I have verified my email</button>
+        <span id="verify-spinner" style="display:none;margin-left:8px;">Checking...</span>
+        <div id="paypal-container" style="margin-top:12px; display:none;">
+          <div id="paypal-button-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="col-span-1 p-4 bg-blue-50 rounded">
+      <h3 class="text-lg font-semibold mb-2">Payment</h3>
+      <p class="text-sm mb-3">After creating an account a verification email will be sent. Once verified, complete payment below to unlock the course dashboard.</p>
+    </div>
+  </div>
+
+  <!-- Firebase Config + Auth -->
+  <script type="module">
+    // ✅ Firebase config from your project settings
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBGBL3C-zTw6vwThkIuE6mfFanLa-emJA",
+      authDomain: "igt-project-12443.firebaseapp.com",
+      projectId: "igt-project-12443",
+      storageBucket: "igt-project-12443.firebasestorage.app",
+      messagingSenderId: "458543908033",
+      appId: "1:458543908033:web:5781a612406ef2dfe3c824"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    import { registerUser } from "./src/auth.js";
+
+    const form = document.getElementById('registerForm');
+    const msg = document.getElementById('msg');
+    const verifySection = document.getElementById('verify-section');
+    const verifyBtn = document.getElementById('verify-check-btn');
+    const spinner = document.getElementById('verify-spinner');
+    const paypalDiv = document.getElementById('paypal-container');
+
+    // Registration
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email = document.getElementById('r-email').value.trim();
+      const password = document.getElementById('r-password').value;
+      const plan = document.getElementById('r-plan').value;
+
+      msg.innerText = "Creating account...";
+
+      try {
+        const res = await registerUser(email, password, plan);
+        msg.style.color = "green";
+        msg.innerText = res.message || "Account created. Check your email for verification.";
+        verifySection.style.display = "block";
+      } catch(err) {
+        msg.style.color = "red";
+        msg.innerText = err.message;
+      }
+    });
+
+    // Verify email check
+    verifyBtn.addEventListener('click', async ()=>{
+      spinner.style.display = "inline";
+      if(auth.currentUser){
+        await reload(auth.currentUser);
+        if(auth.currentUser.emailVerified){
+          spinner.style.display = "none";
+          paypalDiv.style.display = "block";
+          msg.innerText = "Email verified. Now complete your payment.";
+          loadPayPalButton();
+        } else {
+          spinner.style.display = "none";
+          msg.innerText = "Email not verified yet. Please check your inbox.";
+        }
+      }
+    });
+
+    // PayPal setup
+    function loadPayPalButton(){
+      const plan = document.getElementById('r-plan').value;
+      const prices = {
+        "website-development": 20,
+        "mobile-repairing": 10,
+        "kujenga-tovuti": 22,
+        "ufundi-simu": 11,
+        "kubaka-imbuga": 25,
+        "gukora-phone": 12
+      };
+      paypal.Buttons({
+        createOrder: (data, actions)=>{
+          return actions.order.create({
+            purchase_units:[{ amount:{ value: prices[plan] || 10 } }]
+          });
+        },
+        onApprove: (data, actions)=>{
+          return actions.order.capture().then(details=>{
+            msg.innerText = "Payment completed. Redirecting...";
+            setTimeout(()=>{ 
+              window.location.href = plan+"-dashboard.html"; 
+            },1500);
+          });
+        }
+      }).render('#paypal-button-container');
+    }
+  </script>
+
+<!-- Added: Firestore user write on registration with full profile -->
+<script type="module">
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { app } from "./assets/js/firebase-config.js";
+
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const form = document.getElementById('registerForm');
+if(form){
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    try{
+      const email = form.email?.value.trim() || '';
+      const password = form.password?.value || '';
+      const firstName = form.firstName?.value.trim() || '';
+      const lastName = form.lastName?.value.trim() || '';
+      const whatsapp = form.whatsapp?.value.trim() || '';
+      const country = form.country?.value.trim() || '';
+      const plan = form.plan?.value || 'free';
+
+      // create user in Firebase Auth
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = cred.user.uid;
+
+      // write profile to Firestore
+      await setDoc(doc(db, 'users', uid), {
+        email,
+        firstName,
+        lastName,
+        whatsapp,
+        country,
+        plan,
+        verified: false,
+        paid: false,
+        createdAt: serverTimestamp()
+      });
+
+      // send verification email
+      await sendEmailVerification(cred.user);
+      alert('Account created. Verification email sent — please verify then return to complete payment.');
+      window.location.href = 'verify.html';
+    }catch(err){
+      console.error(err);
+      alert(err.message || err);
+    }
+  });
+}
+</script>
+</body>
+
+</html>
