@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Manage Users</title>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
+  <script src="src/js/firebase-config.js"></script>
+  <script src="src/js/admin-guard.js"></script>
+</head>
+<body>
+  <h2>Admin - Manage Users</h2>
+  <table border="1" id="usersTable">
+    <thead>
+      <tr><th>UID</th><th>Email</th><th>Plan</th><th>Paid</th><th>Action</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const db = firebase.firestore();
+    const tbody = document.querySelector("#usersTable tbody");
+
+    function renderUser(uid, data) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${uid}</td>
+        <td>${data.email || ''}</td>
+        <td><input type="text" value="${data.plan || ''}" data-uid="${uid}" class="planInput"></td>
+        <td><input type="checkbox" ${data.paid ? 'checked' : ''} data-uid="${uid}" class="paidCheckbox"></td>
+        <td><button data-uid="${uid}" class="saveBtn">Save</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    db.collection("users").onSnapshot(snapshot => {
+      tbody.innerHTML = "";
+      snapshot.forEach(doc => {
+        renderUser(doc.id, doc.data());
+      });
+
+      document.querySelectorAll(".saveBtn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const uid = btn.dataset.uid;
+          const plan = document.querySelector(`.planInput[data-uid='${uid}']`).value;
+          const paid = document.querySelector(`.paidCheckbox[data-uid='${uid}']`).checked;
+          await db.collection("users").doc(uid).set({ plan, paid }, { merge: true });
+          alert("User updated");
+        });
+      });
+    });
+  </script>
+</body>
+</html>

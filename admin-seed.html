@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Seed Admin UIDs</title>
+</head>
+<body>
+  <h2>Seed Admin UIDs</h2>
+  <p>You must be signed in as a super admin to use this page.</p>
+
+  <input type="text" id="uidInput" placeholder="Enter UID to promote" style="width:300px;">
+  <button id="addBtn">Add Admin</button>
+
+  <pre id="log"></pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-auth.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore.js";
+    import { firebaseConfig } from "./src/firebase-config.js"; // ✅ make sure this path matches your repo
+
+    // --- INIT ---
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const log = (msg) => {
+      document.getElementById("log").textContent += msg + "\n";
+    };
+
+    document.getElementById("addBtn").addEventListener("click", async () => {
+      const uid = document.getElementById("uidInput").value.trim();
+      if (!uid) return alert("Please enter a UID");
+
+      try {
+        const docRef = doc(db, "admins", uid);
+        await setDoc(docRef, {
+          isAdmin: true,
+          createdAt: serverTimestamp(),
+          seeded: true
+        });
+        log("✅ Added admin UID: " + uid);
+      } catch (err) {
+        console.error(err);
+        log("❌ Error: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

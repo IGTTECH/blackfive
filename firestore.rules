@@ -1,0 +1,46 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // === Helper functions ===
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        (request.auth.uid == "p3IsncrXa0W5WQa7gbpWXETPCDn1" ||   // main admin UID
+         request.auth.uid == "SECOND_ADMIN_UID" ||               // add more admin UIDs if needed
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isVerifiedAndPaid() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.paid == true;
+    }
+
+    // === Users collection ===
+    match /users/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow read, update: if isSignedIn() && request.auth.uid == uid;
+      allow read, write: if isAdmin();
+    }
+
+    // === Admins collection ===
+    match /admins/{uid} {
+      allow read, write: if isAdmin();
+    }
+
+    // === Dashboards collection (if dashboard data stored in Firestore) ===
+    match /dashboards/{docId} {
+      allow read, write: if isVerifiedAndPaid() || isAdmin();
+    }
+
+    // === Default deny ===
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

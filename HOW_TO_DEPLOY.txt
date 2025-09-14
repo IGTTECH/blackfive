@@ -1,0 +1,17 @@
+
+# Functions & Firestore Rules for IGT Project
+
+## Deploy functions
+1. Install Firebase CLI and login.
+2. From this project's `blackthree-main` folder run:
+   ```
+   cd functions
+   npm install
+   firebase functions:config:set paypal.client_id="YOUR_CLIENT_ID" paypal.secret="YOUR_SECRET" paypal.sandbox="true"
+   firebase deploy --only functions
+   ```
+## Deploy Firestore rules
+```
+firebase deploy --only firestore:rules
+```
+

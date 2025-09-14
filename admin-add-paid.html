@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Add Paid User</title>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
+  <script src="src/js/firebase-config.js"></script>
+  <script src="src/js/admin-guard.js"></script>
+</head>
+<body>
+  <h2>Admin - Mark User as Paid</h2>
+  <form id="addPaidForm">
+    <label>User UID: <input type="text" id="uid" required></label><br>
+    <label>Plan:
+      <select id="plan">
+        <option value="Website Development">Website Development</option>
+        <option value="Mobile Repairing">Mobile Repairing</option>
+        <option value="Kujenga Tovuti">Kujenga Tovuti</option>
+        <option value="Ufundi Simu">Ufundi Simu</option>
+        <option value="Kubaka Imbuga">Kubaka Imbuga</option>
+        <option value="Gukora Phone">Gukora Phone</option>
+      </select>
+    </label><br>
+    <button type="submit">Mark as Paid</button>
+  </form>
+
+  <script>
+    const db = firebase.firestore();
+    document.getElementById('addPaidForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const uid = document.getElementById('uid').value.trim();
+      const plan = document.getElementById('plan').value;
+      if (!uid) return alert("UID required");
+      await db.collection('users').doc(uid).set({
+        paid: true,
+        plan: plan
+      }, { merge: true });
+      alert("User marked as paid successfully!");
+    });
+  </script>
+</body>
+</html>
