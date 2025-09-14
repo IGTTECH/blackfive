@@ -25,171 +25,119 @@
     <p id="msg" class="text-sm mt-3 text-red-600"></p>
   </div>
 
-  <script type="module">
-    import { auth } from "./src/auth.js";
-    import { reload, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-    import { firebaseConfig } from "./src/firebase-config.js";
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    const msg = document.getElementById("msg");
-    const verifyBtn = document.getElementById("verify-check-btn");
-    const spinner = document.getElementById("verify-spinner");
-    const paypalDiv = document.getElementById("paypal-container");
-
-    // Check user state
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "/login.html";
-        return;
-      }
-
-      await reload(user);
-
-      const ref = doc(db, "users", user.uid);
-      const snap = await getDoc(ref);
-      const data = snap.exists() ? snap.data() : {};
-
-      if (user.emailVerified) {
-        if (data.paid) {
-          // Already paid → go straight to dashboard
-          if (data.plan) {
-            window.location.href = data.plan + "-dashboard.html";
-          } else {
-            msg.innerText = "Paid but no plan assigned. Contact admin.";
-          }
-        } else {
-          // Verified but unpaid → show PayPal
-          paypalDiv.style.display = "block";
-          loadPayPalButton(data.plan || "website-development");
-        }
-      }
-    });
-
-    // Manual verify button
-    verifyBtn.addEventListener("click", async () => {
-      spinner.style.display = "inline";
-      if (auth.currentUser) {
-        await reload(auth.currentUser);
-        if (auth.currentUser.emailVerified) {
-          spinner.style.display = "none";
-          msg.innerText = "Email verified! Please complete payment.";
-          paypalDiv.style.display = "block";
-        } else {
-          spinner.style.display = "none";
-          msg.innerText = "Email not verified yet. Please check your inbox.";
-        }
-      }
-    });
-
-    // PayPal setup
-    function loadPayPalButton(plan) {
-      const prices = {
-        "website-development": 20,
-        "mobile-repairing": 10,
-        "kujenga-tovuti": 22,
-        "ufundi-simu": 11,
-        "kubaka-imbuga": 25,
-        "gukora-phone": 12
-      };
-      paypal.Buttons({
-        createOrder: (data, actions) => {
-          return actions.order.create({
-            purchase_units: [{ amount: { value: prices[plan] || 10 } }]
-          });
-        },
-        onApprove: (data, actions) => {
-          return actions.order.capture().then(async details => {
-            msg.innerText = "Payment completed. Saving...";
-
-            if (auth.currentUser) {
-              const ref = doc(db, "users", auth.currentUser.uid);
-              const snap = await getDoc(ref);
-              if (snap.exists()) {
-                await updateDoc(ref, { paid: true, plan });
-              } else {
-                await setDoc(ref, {
-                  email: auth.currentUser.email,
-                  paid: true,
-                  plan,
-                  createdAt: new Date().toISOString()
-                });
-              }
-            }
-
-            msg.innerText = "Payment successful! Redirecting...";
-            setTimeout(() => {
-              window.location.href = plan + "-dashboard.html";
-            }, 1500);
-          });
-        }
-      }).render("#paypal-button-container");
-    }
-  </script>
-
-
-
-
-<!-- Added verification logic with profile preservation -->
 <script type="module">
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "./src/firebase-config.js";
 
-const auth = getAuth();
-const db = getFirestore();
-const functions = getFunctions();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-onAuthStateChanged(auth, async (user)=>{
-  if(!user){
-    window.location.href = 'login.html';
+const msg = document.getElementById("msg");
+const verifyBtn = document.getElementById("verify-check-btn");
+const spinner = document.getElementById("verify-spinner");
+const paypalDiv = document.getElementById("paypal-container");
+
+// Price mapping per course
+const prices = {
+  "website-development": 20,
+  "mobile-repairing": 10,
+  "kujenga-tovuti": 22,
+  "ufundi-simu": 11,
+  "kubaka-imbuga": 25,
+  "gukora-phone": 12
+};
+
+// Handle logged-in user
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "login.html";
     return;
   }
-  await user.reload();
-  if(user.emailVerified){
-    try{
-      await updateDoc(doc(db, 'users', user.uid), { verified: true });
-      if(window.paypal && document.getElementById('paypal-button-container')){
-        paypal.Buttons({
-          createOrder: function(data, actions){
-            return actions.order.create({purchase_units:[{amount:{value:'9.99'}}]});
-          },
-          onApprove: function(data, actions){
-            return actions.order.capture().then(async function(details){
-              try{
-                const verify = httpsCallable(functions, 'verifyPayPalOrder');
-                await verify({ orderId: data.orderID });
-                alert('Payment verified. You can now access dashboards.');
-                await user.getIdToken(true);
-                window.location.href = 'website-dev-dashboard.html';
-              }catch(err){
-                console.error(err);
-                alert('Payment verification failed: '+ (err.message || err));
-              }
-            });
-          },
-          onError: function(err){
-            console.error(err);
-            alert('PayPal error: '+err);
-          }
-        }).render('#paypal-button-container');
+
+  await reload(user);
+  const ref = doc(db, "users", user.uid);
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? snap.data() : {};
+
+  if (user.emailVerified) {
+    // Mark verified in Firestore
+    try {
+      await updateDoc(ref, { verified: true });
+    } catch(e) {
+      console.warn("Could not update verified flag:", e);
+    }
+
+    if (data.paid) {
+      // Already paid → go to dashboard
+      if (data.plan) {
+        window.location.href = data.plan + "-dashboard.html";
+      } else {
+        msg.innerText = "Paid but no plan assigned. Contact admin.";
       }
-    }catch(e){ console.error(e); }
-  } else {
-    const btn = document.getElementById('checkVerifiedBtn'); 
-    if(btn){
-      btn.addEventListener('click', async ()=>{
-        await user.reload();
-        if(user.emailVerified) location.reload();
-        else alert('Email still not verified. Please check your inbox.');
-      });
+    } else {
+      // Verified but unpaid → show PayPal
+      paypalDiv.style.display = "block";
+      loadPayPalButton(data.plan || "website-development");
     }
   }
 });
-</script>
 
+// Manual verify button
+verifyBtn.addEventListener("click", async () => {
+  spinner.style.display = "inline";
+  if (auth.currentUser) {
+    await reload(auth.currentUser);
+    if (auth.currentUser.emailVerified) {
+      spinner.style.display = "none";
+      msg.style.color = "green";
+      msg.innerText = "Email verified! Please complete payment.";
+      paypalDiv.style.display = "block";
+    } else {
+      spinner.style.display = "none";
+      msg.innerText = "Email not verified yet. Please check your inbox.";
+    }
+  }
+});
+
+// Load PayPal button
+function loadPayPalButton(plan) {
+  paypal.Buttons({
+    createOrder: (data, actions) => {
+      return actions.order.create({
+        purchase_units: [{ amount: { value: prices[plan] || 10 } }]
+      });
+    },
+    onApprove: (data, actions) => {
+      return actions.order.capture().then(async () => {
+        msg.innerText = "Payment completed. Saving...";
+
+        if (auth.currentUser) {
+          const ref = doc(db, "users", auth.currentUser.uid);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            await updateDoc(ref, { paid: true, plan });
+          } else {
+            await setDoc(ref, {
+              email: auth.currentUser.email,
+              paid: true,
+              plan,
+              createdAt: new Date().toISOString()
+            });
+          }
+        }
+
+        msg.style.color = "green";
+        msg.innerText = "Payment successful! Redirecting...";
+        setTimeout(() => {
+          window.location.href = plan + "-dashboard.html";
+        }, 1500);
+      });
+    }
+  }).render("#paypal-button-container");
+}
+</script>
 </body>
 </html>
