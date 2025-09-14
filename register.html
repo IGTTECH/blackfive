@@ -29,8 +29,8 @@
           <input name="country" placeholder="Country" required class="p-3 border rounded" />
         </div>
 
-        <label class="block">Choose course you want to learn</label>
-        <select id="r-course" name="course" required class="p-3 border rounded w-full">
+        <label class="block">Choose course plan</label>
+        <select id="r-plan" name="plan" required class="p-3 border rounded w-full">
           <option value="website-development">Website Development - $20/mo</option>
           <option value="mobile-repairing">Mobile Repairing - $10/mo</option>
           <option value="kujenga-tovuti">Kujenga Tovuti - $22/mo</option>
@@ -39,19 +39,7 @@
           <option value="gukora-phone">Gukora Phone - $12/mo</option>
         </select>
 
-        <div class="mt-2">
-          <label>Choose plan</label>
-          <select id="r-plan" name="plan" class="w-full p-2 border rounded">
-            <option value="website-development">Website Development</option>
-            <option value="mobile-repairing">Mobile Repairing</option>
-            <option value="kujenga-tovuti">Kujenga Tovuti</option>
-            <option value="ufundi-simu">Ufundi Simu</option>
-            <option value="kubaka-imbuga">Kubaka Imbuga</option>
-            <option value="gukora-phone">Gukora phone</option>
-          </select>
-        </div>
-
-        <div id="msg" class="text-sm text-red-600"></div>
+        <div id="msg" class="text-sm"></div>
         <button class="w-full bg-blue-600 text-white p-3 rounded">Create account</button>
       </form>
 
@@ -85,10 +73,12 @@
     const verifyBtn = document.getElementById('verify-check-btn');
     const spinner = document.getElementById('verify-spinner');
     const paypalDiv = document.getElementById('paypal-container');
+    let paypalLoaded = false;
 
     // Registration
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      msg.style.color = "black";
       msg.innerText = "Creating account...";
 
       try {
@@ -131,11 +121,16 @@
         await reload(auth.currentUser);
         if (auth.currentUser.emailVerified) {
           spinner.style.display = "none";
-          paypalDiv.style.display = "block";
+          msg.style.color = "green";
           msg.innerText = "Email verified. Now complete your payment.";
-          loadPayPalButton();
+          if (!paypalLoaded) {
+            paypalDiv.style.display = "block";
+            loadPayPalButton();
+            paypalLoaded = true;
+          }
         } else {
           spinner.style.display = "none";
+          msg.style.color = "red";
           msg.innerText = "Email not verified yet. Please check your inbox.";
         }
       }
@@ -160,6 +155,7 @@
         },
         onApprove: (data, actions) => {
           return actions.order.capture().then(async () => {
+            msg.style.color = "green";
             msg.innerText = "Payment completed. Redirecting...";
 
             // mark user as paid in Firestore
