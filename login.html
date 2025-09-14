@@ -6,23 +6,14 @@
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link rel="stylesheet" href="assets/styles.css">
 
-<!-- PayPal SDK (replace with your real client ID) -->
-<script src="https://www.paypal.com/sdk/js?client-id=AVEX1YCYhqqBh1UB3qas6vKAmRDHKk5ro8z5I65vKco3B5-NsrnbYSqkYTcwUQFyuop96hhmOkvB92-k&vault=false"></script>
-
-<script>
-  function showError(msg){
-    document.getElementById('error-message').innerText = msg;
-  }
-</script>
-
 <title>Login - IGT Tech</title>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
   <div class="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
     <h2 class="text-2xl font-bold mb-4">Welcome back</h2>
     <form id="loginForm" class="space-y-3">
-      <input id="l-email" type="email" placeholder="Email" required class="p-3 border rounded w-full" />
-      <input id="l-password" type="password" placeholder="Password" required class="p-3 border rounded w-full" />
+      <input id="l-email" name="email" type="email" placeholder="Email" required class="p-3 border rounded w-full" />
+      <input id="l-password" name="password" type="password" placeholder="Password" required class="p-3 border rounded w-full" />
       <div id="loginMsg" class="text-sm text-red-600"></div>
       <button type="submit" class="w-full bg-green-600 text-white p-3 rounded">Login</button>
       <div class="flex justify-between text-sm mt-3">
@@ -32,49 +23,63 @@
     </form>
   </div>
 
-  
-
-
 <script type="module">
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { app } from "./assets/js/firebase-config.js";
+import { app } from "./src/firebase-config.js";   <!-- ✅ Correct path -->
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 const form = document.getElementById('loginForm');
+const msg = document.getElementById('loginMsg');
 
 if(form){
   form.addEventListener('submit', async function(e){
     e.preventDefault();
     const email = form.email.value.trim();
     const password = form.password.value;
+
+    msg.innerText = "Logging in...";
+
     try{
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
       const snap = await getDoc(doc(db, 'users', uid));
+
       if(!snap.exists()){
-        alert('User data missing. Contact admin.');
+        msg.innerText = 'User data missing. Contact admin.';
         return;
       }
+
       const data = snap.data();
       if(!data.verified){
+        msg.innerText = "Please verify your email first.";
         window.location.href = 'verify.html';
         return;
       }
+
       if(!data.paid){
+        // Allow admin override
         const adminSnap = await getDoc(doc(db, 'admins', uid));
         if(!adminSnap.exists()){
-          alert('You need to complete payment to access dashboards.');
+          msg.innerText = "Payment required before accessing dashboard.";
           window.location.href = 'verify.html';
           return;
         }
       }
-      alert("Welcome, " + (data.firstName || "") + " " + (data.lastName || ""));
-      window.location.href = 'website-dev-dashboard.html';
+
+      msg.style.color = "green";
+      msg.innerText = "Welcome, " + (data.firstName || "") + " " + (data.lastName || "");
+      // ✅ Redirect to user’s chosen dashboard (based on saved plan)
+      if(data.plan){
+        window.location.href = data.plan + "-dashboard.html";
+      } else {
+        window.location.href = "website-development-dashboard.html";
+      }
+
     }catch(err){
       console.error(err);
-      document.getElementById('error-message').innerText = err.message || err;
+      msg.innerText = err.message || err;
     }
   });
 }
