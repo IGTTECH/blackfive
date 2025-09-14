@@ -170,7 +170,7 @@
 <script type="module">
 import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { app } from "./assets/js/firebase-config.js";
+import { app } from "./src/firebase-config.js";
 
 const auth = getAuth(app);
 const db = getFirestore(app);
