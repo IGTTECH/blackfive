@@ -1,12 +1,12 @@
 <!doctype html>
 <html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
 
-<title>Login - IGT Tech</title>
+  <title>Login - IGT Tech</title>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
   <div class="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
@@ -14,7 +14,7 @@
     <form id="loginForm" class="space-y-3">
       <input id="l-email" name="email" type="email" placeholder="Email" required class="p-3 border rounded w-full" />
       <input id="l-password" name="password" type="password" placeholder="Password" required class="p-3 border rounded w-full" />
-      <div id="loginMsg" class="text-sm text-red-600"></div>
+      <div id="loginMsg" class="text-sm"></div>
       <button type="submit" class="w-full bg-green-600 text-white p-3 rounded">Login</button>
       <div class="flex justify-between text-sm mt-3">
         <a href="forgot.html" class="text-blue-600">Forgot password?</a>
@@ -23,67 +23,67 @@
     </form>
   </div>
 
-<script type="module">
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { app } from "./src/firebase-config.js";   <!-- ✅ Correct path -->
+  <script type="module">
+    import { auth, db } from "./src/firebase-config.js";
+    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const auth = getAuth(app);
-const db = getFirestore(app);
-const form = document.getElementById('loginForm');
-const msg = document.getElementById('loginMsg');
+    const form = document.getElementById('loginForm');
+    const msg = document.getElementById('loginMsg');
 
-if(form){
-  form.addEventListener('submit', async function(e){
-    e.preventDefault();
-    const email = form.email.value.trim();
-    const password = form.password.value;
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.style.color = 'black';
+        msg.innerText = 'Logging in...';
 
-    msg.innerText = "Logging in...";
+        try {
+          const email = form.email.value.trim();
+          const password = form.password.value;
 
-    try{
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = cred.user.uid;
-      const snap = await getDoc(doc(db, 'users', uid));
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          const uid = cred.user.uid;
+          const snap = await getDoc(doc(db, 'users', uid));
 
-      if(!snap.exists()){
-        msg.innerText = 'User data missing. Contact admin.';
-        return;
-      }
+          if (!snap.exists()) {
+            msg.style.color = 'red';
+            msg.innerText = 'User data missing. Contact admin.';
+            return;
+          }
 
-      const data = snap.data();
-      if(!data.verified){
-        msg.innerText = "Please verify your email first.";
-        window.location.href = 'verify.html';
-        return;
-      }
+          const data = snap.data();
 
-      if(!data.paid){
-        // Allow admin override
-        const adminSnap = await getDoc(doc(db, 'admins', uid));
-        if(!adminSnap.exists()){
-          msg.innerText = "Payment required before accessing dashboard.";
-          window.location.href = 'verify.html';
-          return;
+          if (!data.verified) {
+            msg.style.color = 'red';
+            msg.innerText = 'Please verify your email first.';
+            window.location.href = 'verify.html';
+            return;
+          }
+
+          if (!data.paid) {
+            const adminSnap = await getDoc(doc(db, 'admins', uid));
+            if (!adminSnap.exists()) {
+              msg.style.color = 'red';
+              msg.innerText = 'Payment required before accessing dashboard.';
+              window.location.href = 'verify.html';
+              return;
+            }
+          }
+
+          msg.style.color = 'green';
+          msg.innerText = 'Welcome, ' + (data.firstName || '') + ' ' + (data.lastName || '');
+          if (data.plan) {
+            window.location.href = data.plan + '-dashboard.html';
+          } else {
+            window.location.href = 'website-development-dashboard.html';
+          }
+
+        } catch (err) {
+          msg.style.color = 'red';
+          msg.innerText = err.message || err;
         }
-      }
-
-      msg.style.color = "green";
-      msg.innerText = "Welcome, " + (data.firstName || "") + " " + (data.lastName || "");
-      // ✅ Redirect to user’s chosen dashboard (based on saved plan)
-      if(data.plan){
-        window.location.href = data.plan + "-dashboard.html";
-      } else {
-        window.location.href = "website-development-dashboard.html";
-      }
-
-    }catch(err){
-      console.error(err);
-      msg.innerText = err.message || err;
+      });
     }
-  });
-}
-</script>
-
+  </script>
 </body>
 </html>
