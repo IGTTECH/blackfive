@@ -25,8 +25,8 @@
 
   <script type="module">
     import { auth, db } from "./src/firebase-config.js";
-    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { signInWithEmailAndPassword, reload } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const form = document.getElementById('loginForm');
     const msg = document.getElementById('loginMsg');
@@ -42,25 +42,35 @@
           const password = form.password.value;
 
           const cred = await signInWithEmailAndPassword(auth, email, password);
-          const uid = cred.user.uid;
-          const snap = await getDoc(doc(db, 'users', uid));
+          const user = cred.user;
+          const uid = user.uid;
 
+          // Refresh emailVerified status
+          await reload(user);
+
+          const snap = await getDoc(doc(db, 'users', uid));
           if (!snap.exists()) {
             msg.style.color = 'red';
-            msg.innerText = 'User data missing. Contact admin.';
+            msg.innerText = 'User record missing. Contact support.';
             return;
           }
 
           const data = snap.data();
 
-          if (!data.verified) {
+          // === Email verification check ===
+          if (!user.emailVerified) {
             msg.style.color = 'red';
-            msg.innerText = 'Please verify your email first.';
+            msg.innerText = 'Please verify your email before logging in.';
             window.location.href = 'verify.html';
             return;
+          } else if (!data.verified) {
+            // Update Firestore once user verifies
+            await setDoc(doc(db, 'users', uid), { verified: true }, { merge: true });
           }
 
+          // === Payment check ===
           if (!data.paid) {
+            // Allow if admin has added UID manually
             const adminSnap = await getDoc(doc(db, 'admins', uid));
             if (!adminSnap.exists()) {
               msg.style.color = 'red';
@@ -70,17 +80,17 @@
             }
           }
 
+          // === Success ===
           msg.style.color = 'green';
           msg.innerText = 'Welcome, ' + (data.firstName || '') + ' ' + (data.lastName || '');
-          if (data.plan) {
-            window.location.href = data.plan + '-dashboard.html';
-          } else {
-            window.location.href = 'website-development-dashboard.html';
-          }
+          const redirectPage = (data.plan ? data.plan : 'website-development') + '-dashboard.html';
+          setTimeout(() => {
+            window.location.href = redirectPage;
+          }, 1000);
 
         } catch (err) {
           msg.style.color = 'red';
-          msg.innerText = err.message || err;
+          msg.innerText = (err.message || err).replace("Firebase:", "").trim();
         }
       });
     }
