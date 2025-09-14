@@ -16,7 +16,7 @@
     <!-- Registration Form -->
     <div class="col-span-1">
       <h2 class="text-2xl font-bold mb-4">Create an account</h2>
-      <form id="registerForm" class="space-y-3">
+      <form id="registerForm" class="space-y-3" autocomplete="off" novalidate>
         <div class="grid grid-cols-2 gap-3">
           <input name="firstName" placeholder="First name" required class="p-3 border rounded" />
           <input name="lastName" placeholder="Last name" required class="p-3 border rounded" />
@@ -40,7 +40,7 @@
         </select>
 
         <div id="msg" class="text-sm"></div>
-        <button class="w-full bg-blue-600 text-white p-3 rounded">Create account</button>
+        <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded">Create account</button>
       </form>
 
       <!-- Verify + PayPal -->
